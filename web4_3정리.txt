@@ -1,0 +1,151 @@
+3) 템플릿 시스템
+MVT 방식에서 사용자에게 보여주는 화면, 즉 UI를 담당하고 있는 기능이 템플릿 시스템
+템플릿 코드를 작성 시에 HTML 코드와 장고의 템플릿 코드가 섞이지만 중요한 점은 템플릿에서는 로직을 표현하는 것이 아니라 사용자에게 어떻게 보여줄지에 대한 룩앤필을 표현한다는 것.
+따라서 템플릿 코딩은 프로그래밍이라기보다 화면 구현임
+템플릿 코드의 if 태그, for 태그: 파이썬 프로그래밍 언어와 다름
+장고의 템플릿 시스템은 템플릿 문법으로 작성된 템플릿 코드를 해석하여 템플릿 파일로 결과물을 만들어 줌
+템플릿 코드를 템플릿 파일로 해석하는 과정: 렌더링
+결과물인 템플릿 파일: HTML, XML, JSON 등 단순한 텍스트 파일
+템플릿 코드 vs 템플릿 파일
+템플릿 코드와 템플릿 파일은 꼭 구분해야 되는 것은 아니지만 템플릿에 대해 언급할 때 렌더링이라는 용어는 중요하므로 렌더링 전의 템플릿 문법에 따라 작성된 파일은 템플릿 코드, 렌더링 후의 결과물인 HTML과 같은 텍스트 파일은 템플릿 파일이라고 한다.
+
+1) 템플릿 변수
+{{ variable }}
+
+템플릿 시스템은 변수를 평가해서 변수 값으로 출력해줌. 변수명은 일반 프로그래밍의 변수명처럼 문자, 숫자, 밑줄을 사용하여 이름을 정의. 변수의 속성에 접근할 수 있는 도트(.) 표현식도 가능
+템플릿 문법에서 도트: 찾기(lookup) 시도 
+ex) foo.bar
+->foo가 사전 타입인지를 확인. 그렇다면 foo[‘bar’]로 해석
+->foo의 속성을 찾음. bar라는 속성이 있으면 foo.bar로 해석
+->foo가 리스트인지를 확인. 그렇다면 foo[bar]로 해석
+
+템플릿 시스템은 정의가 되어 있지 않은 변수를 사용하는 경우 빈 문자열로 채워주며 이 값을 변경하려면 settings.py 파일에 다음과 같은 속성을 지정해주면 됨(디폴트는 빈 문자열)
+TEMPLATE_STRING_IF_INVALID
+
+2) 템플릿 필터
+필터란 일반적인 용어로 어떤 객체나 처리 결과에 추가적으로 명령을 적용하여 해당 명령에 맞게 최종 결과를 변경하는 것을 말함. 장고의 템플릿 문법에서도 템플릿 변수에 필터를 적용하여 변수의 출력 결과 변경 가능
+필터는 파이프(|) 문자 사용.
+name 변수값의 모든 문자를 소문자로 바꿔주는 필터임
+{{ name|lower }}
+
+필터를 체인으로 연결한 경우.
+text 변수값 중에서 특수 문자를 이스케이프해주고 그 결과 스트링에 HTML <p> 태그를 붙여줌(linebreaks)
+{{ text|escape|linebreaks }}
+
+몇 가지의 필터는 인자를 가질 수 있음.
+bio 변수값 중에서 앞에 30개의 단어만 보여주고 줄 바꿈 문자는 모두 없애줌
+{{ bio|truncatewords:30 }}
+
+필터의 인자에 빈칸이 있는 경우는 따옴표로 묶어줌.
+list가 [‘a’, ‘b’, ‘c’]라면 결과는 “a // b // c”가 됨
+{{ list|join:” // “ }}
+
+value 변수값이 False이거나 없는 경우 “nothing”으로 보여줌
+{{ value|default:”nothing” }}
+
+value 변수값의 길이 반환. value가 스트링이나 리스트인 경우도 가능
+value가 [‘a’, ‘b’, ‘c’]이면 결과는 3이 됨
+{{ value|length }}
+
+value 변수값에서 HTML 태그를 모두 없애 줌(100% 보장하는 것은 아님)
+{{ value|striptags }}
+
+복수 접미사 필터
+{{ value|pluralize }}
+
+value 변수값이 1이 아니면 복수 접미사 s를 붙여줌. 다른 복수 접미사 es 또는 ies를 붙일 때는 필터에 인자를 사용함.
+{{ value|pluralize:”es” }} 또는 {{ value|pluralize:”ies” }}
+더하기 필터(데이터 타입에 따라 결과 달라짐)
+만약 value 변수값이 4라면 아래 표현식의 최종 결과는 6.
+{{ value|add:”2” }}
+처음에는 value 변수값과 add 필터의 인자가 모두 integer 타입이라고 간주하고 덧셈 시도.
+이 시도가 실패하면 타입이 허용하는 문법에 따라 더하기 시도. 실패할 경우는 빈 문자열 반환
+{{ first|add:second }}
+-first=”python”, second=”django”라면 결과는 “pythondjango”가 됨
+-first=[1, 2, 3], second=[4, 5, 6]이라면 결과는 [1, 2, 3, 4, 5, 6]이 됨
+-first=”5”, second=”10”이면 결과는 15가 됨
+
+장고의 추가 필터 정보
+https://docs.djangoproject.com/en/2.1/ref/templates/builtins/
+
+3) 템플릿 태그
+템플릿 태그는 {% tag %} 형식을 가지며 템플릿 변수나 필터에 비해 좀 더 복잡
+어떤 태그는 시작 태그와 끝 태그 둘 다 있어야 함. 텍스트 결과물을 만들기도 하고 템플릿 로직을 제어하기도 하며 외부 파일을 템플릿 내로 로딩하기도 함.
+템플릿 태그는 {% for %} 태그와 {% if %} 태그를 가장 많이 사용.
+{% csrf_token %} {% url %} {% with %} {% load %}
+
+{% for %} 태그
+리스트에 담겨 있는 항목들을 순회하면서 출력 가능
+<ul>
+{% for athlete in athlete_list %}
+	<li>{{ athlete.name }}</li>
+{% endfor %}
+</ul>
+위 예제는 운동 선수 리스트에 들어있는 항목(athlete)을 순회하면서 각 운동 선수의 이름(athlete.name)을 보여주는 문장. 또 {% for %} 태그를 사용하여 루프를 돌 때 사용할 수 있는 여러 가지 변수 제공
+for 태그에 사용되는 변수들
+forloop.counter 현재까지 루프를 실행한 루프 카운트(1부터 카운트함)
+forloop.counter0 현재까지 루프를 실행한 루프 카운트(0부터 카운트)
+forloop.revcounter 루프 끝에서 현재가 몇 번째인지 카운트한 숫자(1부터 카운트)
+forloop.revcounter0 루프 끝에서 현재가 몇 번째인지 카운트한 숫자(0부터 카운트)
+forloop.first 루프에서 첫 번째 실행이면 True 값을 가짐
+forloop.last 루프에서 마지막 실행이면 True 값을 가짐
+forloop.parentloop 중첩된 루프에서 현재의 루프 바로 상위의 루프를 의미함
+
+{% if %} 태그
+변수를 평가하여 True이면 바로 아래의 문장이 표시
+{% if athlete_list %}
+	Number of athletes: {{ athlete_list|length }}
+{% elif athlete_in_locker_room_list %}
+	Athletes should be out of the locker room soon!
+{% else %}
+	No athletes.
+{% endif %}
+만일 athlete_list 변수가 True이면 운동 선수 숫자가 표시, athlete_in_locker_room_list 변수가 True이면 그 아래 문장이 화면에 나타남. 두 조건 모두 아니라면 No athletes.라는 문장 표시
+{% if %} 태그에 필터와 연산자 사용 가능
+*대부분의 필터가 스트링을 반환하므로 산술 연산이 안 되지만 length 필터는 예외적으로 가능
+{% if athlete_list|length > 1 %}
+또 {% if %} 태그에는 불린 연산자 사용 가능
+and, or, not, and not, ==, !=, <, >, <=. >=, in, not in
+
+{% csrf_token %} 태그
+POST 방식의 <form>을 사용하는 템플릿 코드에서는 CSRF(Cross Site Request Forgery) 공격을 방지하기 위해 {% csrf_token %} 태그 사용해야 함. 폼 데이터에는 악의적인 스크립트 문장이 들어있을 수도 있기 때문
+<form action=”.” method=”post”>{% csrf_token %}
+위치는 <form> 엘리먼트의 첫 줄 다음에 넣어주면 됨.
+이 태그를 사용하면 장고는 내부적으로 CSRF 토큰값의 유효성을 검증함
+만일 CSRF 토큰값 검증에 실패하면 사용자에게 403 에러를 보여줌
+주의) CSRF 토큰값이 유출될 수 있으므로 외부 URL로 보내는 <form>에는 사용하지 않기
+*CSRF 공격이란?
+CSRF(Cross-site Request Forgery)는 사이트 간 요청 위조 공격이라고도 표현함. 웹 사이트의 취약점을 공격하는 방식 중의 하나로 특정 웹 사이트에서 이미 인증을 받은 사용자를 이용하여 공격을 시도. 인증을 받은 사용자가 공격 코드가 삽입된 페이지를 열면 공격 대상이 되는 웹 사이트는 위조된 공격 명령이 믿을 수 있는 사용자로부터 발송된 것으로 판단하게 되어 공격을 받게 되는 형식임
+
+{% url %} 태그
+detail.html 코드 중
+<form action=”{% url ‘polls:vote’ question.id %}” method=”post”>
+
+이 태그의 주 목적은 소스에 URL을 하드코딩하는 것을 방지하기 위한 것임. 만일 이 태그를 사용하지 않는다면 다음과 같이 URL을 하드코딩해야 함
+<form action=”/polls/3/vote/” method=”post”>
+
+위와 같이 코딩한다면 /polls/라는 URL을 /blog/라고 변경하는 경우에 URLconf뿐만 아니라 모든 html을 찾아서 변경해줘야 함. 또한 /3/이라는 숫자는 런타임에 따라 결정되어 항상 변하는 값이므로 변수 처리를 해줘야 하기 때문에 이 때문에 불편함
+따라서 {% url %} 태그를 사용하여 하드코딩하는 것을 피하자.
+
+{% url %} 태그를 사용하면 URL이 변경되더라도 URLconf만을 참조하여 원하는 URL을 추출할 수 있음
+{% url ‘namespace:view-name’ arg1 arg2 %}
+-namespace: urls.py 파일의 include() 함수 또는 app_name 변수에 정의한 이름 공간(namespace) 이름
+-view-name: urls.py 파일에서 정의한 URL 패턴 이름
+-argN: 뷰 함수에서 사용하는 인자로 없을 수도 있고 여러 개인 경우 빈칸으로 구분
+
+{% with %} 태그
+특정 값을 변수에 저장해두는 기능.
+{% with total=business.employees.count %}
+	{{ total }} people works at business
+{% endwith %}
+
+{% load %} 태그
+사용자 정의 태그 및 필터 로딩
+{% load somelibrary package.otherlibrary %}
+태그 및 필터는 장고에서 기본적으로 제공하는 것 외에도 개발자가 필요에 따라 스스로 정의하여 사용 가능
+이를 사용자 정의 태그, 사용자 정의 필터라고 함.
+사용자 정의 태그 및 필터를 사용하기 위해서는 사용하기 전에 로딩을 먼저 해줘야 함
+앞의 문장은 somelibrary.py 파일 및 package/otherlibrary.py 파일에 정의된 사용자 정의 태그 및 필터를 로딩해줌
+장고는 약 30여 가지의 태그 제공. 
+https://docs.djangoproject.com/en/2.1/ref/template/builtins/
+
