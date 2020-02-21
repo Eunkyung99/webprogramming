@@ -68,3 +68,85 @@ class NameForm(forms Form):
 이는 렌더링되면 <label> 엘리먼트로 나타날 것임
 필드의 최대 길이도 max_length 속성으로 지정했음(사용자가 100 글자 이상 입력하는 것을 방지하는 기능, 장고가 브라우저로부터 폼 데이터를 받았을 때 데이터의 길이가 유효한지 검사하는 데 사용됨)
 각각의 폼 필드는 위젯 클래스를 갖고 있고 이 위젯 클래스는 <input type=”text”>와 같은 HTML 폼 위젯으로 대응됨. 대부분의 폼 필드는 디폴트 위젯을 갖고 있음. 
+위 예제에 사용된 CharField 필드 타입은 TextInput 위젯이 디폴트 위젯이며, HTML <input type=”text”>로 변환됨. 만일 디폴트 위젯을 <textarea>로 변경하려면 아래와 같이 폼 필드를 정의할 때 명시적으로 지정
+your_name = forms.CharField(label=’Your name’, max_length=100, widget=forms.Textarea)
+장고의 폼 클래스는 모든 필드에 대해 유효성 검사 루틴을 실행시키는 is_valid() 메소드를 갖고 있음. 이 메소드가 호출되어 유효성 검사를 하고, 그 결과 만일 모든 필드가 유효하다면 is_valid() 메소드는 다음과 같은 2가지 일을 함. 1) True 반환 2) 폼 데이터를 cleaned_data 속성에 넣음
+폼 클래스 렌더링 결과
+<label for=”your_name”>Your name: </label>
+<input id=”your_name” type=”text” name=”your_name” maxlength=”100”>
+*렌더링 결과에 <form> 태그나 submit 버튼은 없기 때문에 개발자가 직접 템플릿에 넣어야 함
+폼 클래스를 템플릿에서 사용-name.html
+<form action=”/your-name/” method=”post”>
+	{% csrf_token %}
+	{{ form }}
+	<input type=”submit” value=”Submit” />
+</form>
+CSRF 공격을 방지하기 위해 {% csrf_token %} 태그 추가
+폼 클래스는 {{ form }} 변수로 사용
+{{ form }} 변수는 뷰에서 컨텍스트 변수에 포함하여 템플릿 시스템으로 넘겨주게 됨
+
+4) 뷰에서 폼 클래스 처리
+앞 절에서 작성한 NameForm 폼 클래스와 name.html 템플릿을 사용하여 폼을 보여주고 폼 데이터를 수신하여 처리하는 뷰 작성.
+폼을 처리하는 뷰는 2개 필요. 1) 폼을 보여주는 뷰 2) 제출된 폼을 처리하는 뷰
+2개의 뷰는 하나의 뷰로 통합하여 폼을 처리할 수 있음
+그러려면 처음 사용자에게 보여주는 폼과 사용자가 데이터를 입력한 후 제출된 폼을 구분하여 처리할 수 있어야 함. 장고에서는 이를 HTTP 메소드로 구분. 즉 뷰가 GET 방식으로 요청을 받은 경우에는 사용자에게 처음으로 폼을 보여주도록 처리하고, 뷰가 POST 방식으로 요청받은 경우에는 데이터가 담긴 제출된 폼으로 간주하여 처리하게 됨
+<뷰에서 폼 클래스를 처리하는 방식>
+from django.shortcuts import render
+from django.http import HttpResponseRedirect
+
+def get_name(request): #뷰 함수 정의. request 인자 필수
+	#POST 방식이면, 데이터가 담긴 제출된 폼으로 간주됨
+	if request.method == ‘POST’: #사용자가 폼에 데이터를 입력하고 제출하면 POST 요청으로 도착함
+		#request에 담긴 데이터로 클래스 폼을 생성
+		form = NameForm(request.POST) #폼이 POST 요청으로 제출되면 뷰는 다시 한 번 폼 객체 생성. 이번에는 요청에 포함된 데이터로 채워 줌. 이를 바운드 폼(bound form)이라 함
+		#폼에 담긴 데이터가 유효한지 체크
+		if form_is_valid(): #폼의 is_valid() 메소드 호출
+		#만일 True이면 유효한 폼 데이터가 cleaned_data 속성에 담겨 있게 되고, 이 데이터를 사용하여 데이터베이스를 변경하거나 로직에 따라 다른 처리를 하게 됨. 그 이후에 브라우저에게 HTTP 리다이렉트를 전송하여 다음 페이지로 이동하게 됨
+			#폼 데이터가 유효하면 데이터는 cleaned_data로 복사됨
+			new_name = form.cleaned_data[‘name’]
+			#로직에 따라 추가적인 처리를 함
+			
+			#새로운 URL로 리다이렉션시킴
+			return HttpResponseRedirect(‘/thanks/’)
+	
+		#POST 방식이 아니면(GET 요청)
+		#빈 폼을 사용자에게 보여줌
+		else: #GET 요청이 도착하면 빈 폼 객체를 생성하고 렌더링을 위해 템플릿 시스템으로 전달함. 이 부분이 사용자가 해당 URL을 처음 방문 시 일어나는 동작임.
+			form = NameForm()
+	
+		return render(request, ‘name.html’, {‘form’: form})
+		#True가 아니면 마지막 라인의 render() 함수 호출. 이때 템플릿 시스템으로 전달되는 컨텍스트 변수 ‘form’에는 직전에 제출된 폼 데이터로 채워짐
+		#HTTPResponseRedirect()를 리턴하는 경우가 아니면 마지막 라인이 실행됨. render() 함수는 템플릿 코드 name.html에 컨텍스트 변수를 적용하여 사용자에게 보여줄 최종 템플릿 파일을 만들고, 이를 담아서 HttpResponse 객체를 반환
+
+5) 폼 클래스를 템플릿으로 변환
+앞에서 NameForm 폼 클래스를 렌더링하여 name.html 템플릿으로 변환되는 과정을 살펴봄.
+폼 클래스를 템플릿으로 변환하기 위해서는 폼 객체를 생성해서 이를 템플릿 시스템에 넘겨주면 됨. 템플릿 시스템에서는 템플릿 문법 및 폼 객체를 해석해서 HTML 템플릿 파일을 만들어 줌.
+{{ form }} 구문은 HTML의 <label>과 <input> 엘리먼트 쌍으로 렌더링됨.
+HTML <label>/<input> 쌍으로 변환 시 {{ form }} 이외에도 3가지 옵션이 더 있음
+-{{ form_as_table }} : <tr> 태그로 감싸서 테이블 셀로 렌더링됨. {{form}}과 동일함
+-{{ form.as_p }} : <p> 태그로 감싸도록 렌더링됨
+-{{ form_as_ul }} : <li> 태그로 감싸도록 렌더링됨
+여기서도 <label>/<input> 태그 쌍을 감싸는 <table> 혹은 <ul> 태그는 개발자가 직접 추가해야 함. 물론 <form> 태그와 submit 컨트롤도 자동으로 추가되지 않으므로 개발자가 직접 작성.
+ContactForm 폼 클래스 정의
+from django import forms
+
+class ContactForm(forms.Form):
+	subject = forms.CharField(max_length=100)
+	message = forms.CharField(widget=forms.Textarea)
+	sender = forms.EmailField()
+	cc_myself = forms.BooleanField(required=False)
+
+ContactForm 폼 클래스의 {{ form.as_p }} 렌더링 결과
+<p><label for=”id_subject”>Subject:</label>
+	<input id=”id_subject” type=”text” name=”subject” maxlength=”100” /></p>
+<p><label for=”id_message”>Message:</label>
+	<input type=”text” name=”message” id=”id_message” /></p>
+<p><label for=”id_sender”>Sender:</label>
+	<input type=”email” name=”sender” id=”id_sender” /></p>
+<p><label for=”id_cc_myself”>Cc myself:</label>
+	<input type=”checkbox” name=”cc_myself” id=”id_cc_myself” /></p>
+
+폼 클래스의 각 필드 타입에 따라 <input type> 태그 타입이 어떻게 변환되었는지 눈여겨보기
+<label> 태그에 나타나는 텍스트는 각 필드를 정의할 때 명시적으로 지정할 수 있음
+위 예제에서는 지정하지 않았기 때문에 디폴트 레이블 텍스트를 사용.
+디폴트 레이블 텍스트는 필드명에서 첫 자를 대문자로 하고 밑줄(_)은 빈칸()으로 변경하여 만듦. <input id> 태그 속성도 각 필드의 필드명을 사용하여 id_필드명 형식으로 만든다. 이것은 <label for> 태그 속성에도 사용됨
